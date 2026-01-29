@@ -18,7 +18,7 @@ public class HttpInterfaceConfig {
     @Bean
     public AccountClient accountClient(HttpInterfaceFactory factory) {
         return factory.createClient(
-                "http://localhost:20261",
+                "http://account", // http://account - like in Eureka (ACCOUNT or account)
                 AccountClient.class);
     }
 
