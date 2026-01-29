@@ -13,7 +13,16 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 public class HttpInterfaceFactory {
 
     private final OAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
-    private final WebClient.Builder loadBalancedWebClientBuilder;
+    private final WebClient.Builder loadBalancedWebClientBuilder;  // for Eureka services
+
+    // for non-Eureka services
+    public <T> T createNormalClient(String baseUrl, Class<T> interfaceClass) {
+        WebClient webClient = WebClient.builder()
+                .baseUrl(baseUrl)
+                .build();
+
+        return createClient(webClient, interfaceClass);
+    }
 
     // 2nd method invoke 1st method
     public <T> T createClient(String baseUrl, Class<T> interfaceClass) {

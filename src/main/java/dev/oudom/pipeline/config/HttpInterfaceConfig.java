@@ -10,7 +10,7 @@ public class HttpInterfaceConfig {
 
     @Bean
     public JsonPlaceholderClient jsonPlaceholderClient(HttpInterfaceFactory factory) {
-        return factory.createClient(
+        return factory.createNormalClient(
                 "https://jsonplaceholder.typicode.com",
                 JsonPlaceholderClient.class);
     }
