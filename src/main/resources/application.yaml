@@ -31,3 +31,18 @@ spring:
               - openid # Auto issue access token
               - profile # Get profile
               - email # Get email
+# Resilience4J
+resilience4j:
+  circuitbreaker:
+    instances:
+      account:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        permitted-number-of-calls-in-half-open-state: 2
+        wait-duration-in-open-state: 10000
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
