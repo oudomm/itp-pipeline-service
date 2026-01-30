@@ -1,37 +1,44 @@
 package dev.oudom.pipeline.controller;
 
 import dev.oudom.pipeline.client.AccountClient;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-@Slf4j
 @RestController
 @RequestMapping("/client/account")
-@RequiredArgsConstructor
 public class AccountClientController {
 
     private final AccountClient accountClient;
+    private final CircuitBreaker circuitBreaker;
 
+    public AccountClientController(AccountClient accountClient,
+                                   CircuitBreakerRegistry registry) {
+        this.accountClient = accountClient;
+        circuitBreaker = registry.circuitBreaker("account");
+    }
+
+    //@CircuitBreaker(name = "account", fallbackMethod = "getSecuredDataFallback")
     @GetMapping("/secured")
-    @CircuitBreaker(name = "account", fallbackMethod = "getSecuredDataFallback")
     public Map<String, Object> getSecuredData() {
-        log.info("Calling account service...");
-        return accountClient.getSecuredData();
+        //return accountClient.getSecuredData();
+        try {
+            return circuitBreaker.executeSupplier(accountClient::getSecuredData);
+        } catch (CallNotPermittedException e) {
+            return Map.of("data", e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Error" + e.getMessage());
+            return Map.of("data", e.getMessage());
+        }
     }
 
-    // Fallback method - must have same return type and parameters + Exception
-    private Map<String, Object> getSecuredDataFallback(Exception ex) {
-        log.error("Account service is unavailable. Reason: {}", ex.getMessage());
-        return Map.of(
-                "status", "SERVICE_UNAVAILABLE",
-                "message", "Account service is temporarily down. Please try again later.",
-                "error", ex.getMessage()
-        );
-    }
+//    public Map<String, Object> getSecuredDataFallback(Throwable t) {
+//        return Map.of("data", "default value");
+//    }
+
 }
