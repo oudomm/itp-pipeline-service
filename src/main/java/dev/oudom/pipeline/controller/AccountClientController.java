@@ -4,6 +4,7 @@ import dev.oudom.pipeline.client.AccountClient;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/client/account")
+@Slf4j
 public class AccountClientController {
 
     private final AccountClient accountClient;
@@ -27,6 +29,7 @@ public class AccountClientController {
     @GetMapping("/secured")
     public Map<String, Object> getSecuredData() {
         //return accountClient.getSecuredData();
+        log.debug("getSecuredData");
         try {
             return circuitBreaker.executeSupplier(accountClient::getSecuredData);
         } catch (CallNotPermittedException e) {

@@ -46,3 +46,6 @@ management:
     web:
       exposure:
         include: "*"
+logging:
+  level:
+    dev.oudom.pipeline: DEBUG
