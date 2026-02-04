@@ -13,7 +13,7 @@ spring:
     import: optional:configserver:http://localhost:8888
   cloud:
     function:
-      definition: processProduct;processMessage;processProductDetail # must be the same - processProduct
+      definition: processProduct;processMessage;processProductDetail;processDbChanges # must be the same - processProduct
     stream:
       bindings:
         processProductDetail-in-0:
@@ -29,11 +29,26 @@ spring:
         processProductDetail-out-0:
           destination: processed-product-detail
           content-type: application/json
+        # CDC Bindings
+        processDbChanges-in-0:
+          destination: dbserver1.public.products
+          group: cdc-group-v3
+          consumer:
+            use-native-decoding: true
+        processDbChanges-out-0:
+          destination: processed-cdc-events
+          content-type: application/json
       kafka:
         binder:
           brokers: localhost:29092,localhost:29094,localhost:29096
-          configuration:
-            auto.offset.reset: earliest
+          consumer-properties:
+            key.deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+            value.deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+            spring.deserializer.key.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
+            spring.deserializer.value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
+            schema.registry.url: http://localhost:8081
+            specific.avro.reader: false
+            auto.offset.reset: latest
   security:
     oauth2:
       resourceserver:

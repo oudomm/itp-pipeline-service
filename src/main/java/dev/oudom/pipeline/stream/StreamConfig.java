@@ -1,5 +1,7 @@
 package dev.oudom.pipeline.stream;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.generic.GenericRecord;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -7,6 +9,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 @Configuration
+@Slf4j
 public class StreamConfig {
 
     // Supplier for producing message into kafka topic
@@ -43,5 +46,27 @@ public class StreamConfig {
         };
     }
 
+    // CDC Processor - handles Avro messages from Debezium
+    @Bean
+    public Function<GenericRecord, Product> processDbChanges() {
+        return avroRecord -> {
+            try {
+                log.info("=== CDC Event Received ===");
+                log.info("Avro Record: {}", avroRecord);
 
+                String code = avroRecord.get("code") != null ? avroRecord.get("code").toString() : null;
+                Integer qty = avroRecord.get("qty") != null ? (Integer) avroRecord.get("qty") : null;
+
+                Product product = new Product();
+                product.setCode(code);
+                product.setQty(qty);
+
+                log.info("Converted to Product: {}", product);
+                return product;
+            } catch (Exception e) {
+                log.error("Error processing CDC event", e);
+                throw new RuntimeException("Failed to process CDC event", e);
+            }
+        };
+    }
 }

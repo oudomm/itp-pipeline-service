@@ -1,14 +1,12 @@
 package dev.oudom.pipeline.stream;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 public class Product {
     private String code;
     private Integer qty;
