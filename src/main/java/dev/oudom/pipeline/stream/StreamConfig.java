@@ -4,7 +4,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -68,5 +73,154 @@ public class StreamConfig {
                 throw new RuntimeException("Failed to process CDC event", e);
             }
         };
+    }
+
+    // Oracle CDC Processor for RECORD_XML table
+    @Bean
+    public Consumer<GenericRecord> processOracleDbChanges() {
+        return avroRecord -> {
+            try {
+                log.info("=== Oracle CDC Event Received ===");
+                log.info("Full Avro Record: {}", avroRecord);
+
+                // Debezium wraps the actual data in an envelope
+                // The structure is: { "before": {...}, "after": {...}, "op": "c/u/d", ... }
+
+                // Get the operation type
+                String operation = avroRecord.get("op") != null ?
+                        avroRecord.get("op").toString() : "unknown";
+                log.info("Operation type: {}", operation);
+
+                // Get the 'after' state (for INSERT and UPDATE)
+                GenericRecord afterRecord = null;
+                if (avroRecord.get("after") != null) {
+                    afterRecord = (GenericRecord) avroRecord.get("after");
+                }
+
+                // Get the 'before' state (for UPDATE and DELETE)
+                GenericRecord beforeRecord = null;
+                if (avroRecord.get("before") != null) {
+                    beforeRecord = (GenericRecord) avroRecord.get("before");
+                }
+
+                // Process based on operation
+                if ("c".equals(operation) || "u".equals(operation)) {
+                    // CREATE or UPDATE - use 'after'
+                    if (afterRecord != null) {
+                        RecordXml recordXml = extractRecordXml(afterRecord);
+                        log.info("Converted to RecordXml: {}", recordXml);
+
+                        // Parse the XML content
+                        if (recordXml.getXmldata() != null) {
+                            XmlData xmlData = parseXmlContent(recordXml.getXmldata());
+                            log.info("Parsed XML Data - Name: {}, Role: {}",
+                                    xmlData.getName(), xmlData.getRole());
+
+                            // Here you can do whatever you need with the data
+                            // e.g., save to another database, send to another service, etc.
+                            processRecordXmlData(recordXml, xmlData, operation);
+                        }
+                    }
+                } else if ("d".equals(operation)) {
+                    // DELETE - use 'before'
+                    if (beforeRecord != null) {
+                        RecordXml recordXml = extractRecordXml(beforeRecord);
+                        log.info("Deleted RecordXml: {}", recordXml);
+                        handleDeletedRecord(recordXml);
+                    }
+                } else if ("r".equals(operation)) {
+                    // READ (snapshot) - use 'after'
+                    if (afterRecord != null) {
+                        RecordXml recordXml = extractRecordXml(afterRecord);
+                        log.info("Snapshot RecordXml: {}", recordXml);
+                    }
+                }
+
+            } catch (Exception e) {
+                log.error("Error processing Oracle CDC event", e);
+                // Don't throw exception to avoid stopping the stream
+                // In production, you might want to send to a dead letter queue
+            }
+        };
+    }
+
+    /**
+     * Extract RecordXml from Avro GenericRecord
+     */
+    private RecordXml extractRecordXml(GenericRecord record) {
+        RecordXml recordXml = new RecordXml();
+
+        // Extract RECID
+        if (record.get("RECID") != null) {
+            recordXml.setRecid(record.get("RECID").toString());
+        }
+
+        // Extract XMLDATA (Oracle XMLTYPE comes as string)
+        if (record.get("XMLDATA") != null) {
+            recordXml.setXmldata(record.get("XMLDATA").toString());
+        }
+
+        return recordXml;
+    }
+
+    /**
+     * Parse XML string content to XmlData object
+     */
+    private XmlData parseXmlContent(String xmlString) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new ByteArrayInputStream(xmlString.getBytes()));
+
+            Element root = doc.getDocumentElement();
+
+            String name = getElementValue(root, "name");
+            String role = getElementValue(root, "role");
+
+            return new XmlData(name, role);
+
+        } catch (Exception e) {
+            log.error("Error parsing XML content: {}", xmlString, e);
+            return new XmlData(null, null);
+        }
+    }
+
+    /**
+     * Helper method to get element value from XML
+     */
+    private String getElementValue(Element parent, String tagName) {
+        try {
+            return parent.getElementsByTagName(tagName).item(0).getTextContent();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Process the extracted and parsed data
+     */
+    private void processRecordXmlData(RecordXml recordXml, XmlData xmlData, String operation) {
+        log.info("Processing {} operation for RECID: {}", operation, recordXml.getRecid());
+        log.info("Name: {}, Role: {}", xmlData.getName(), xmlData.getRole());
+
+        // Add your business logic here:
+        // - Save to database
+        // - Send to another service
+        // - Transform and forward to another Kafka topic
+        // - Update cache
+        // etc.
+    }
+
+    /**
+     * Handle deleted records
+     */
+    private void handleDeletedRecord(RecordXml recordXml) {
+        log.info("Handling deletion for RECID: {}", recordXml.getRecid());
+
+        // Add your deletion logic here:
+        // - Remove from database
+        // - Invalidate cache
+        // - Send notification
+        // etc.
     }
 }

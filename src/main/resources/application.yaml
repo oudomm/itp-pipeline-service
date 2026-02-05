@@ -13,7 +13,7 @@ spring:
     import: optional:configserver:http://localhost:8888
   cloud:
     function:
-      definition: processProduct;processMessage;processProductDetail;processDbChanges # must be the same - processProduct
+      definition: processProduct;processMessage;processProductDetail;processDbChanges;processOracleDbChanges # must be the same - processProduct
     stream:
       bindings:
         processProductDetail-in-0:
@@ -29,7 +29,7 @@ spring:
         processProductDetail-out-0:
           destination: processed-product-detail
           content-type: application/json
-        # CDC Bindings
+        # PostgreSQL CDC Bindings
         processDbChanges-in-0:
           destination: dbserver1.public.products
           group: cdc-group-v3
@@ -38,6 +38,14 @@ spring:
         processDbChanges-out-0:
           destination: processed-cdc-events
           content-type: application/json
+
+        # Oracle CDC Bindings
+        processOracleDbChanges-in-0:
+          destination: oracleserver.CORE_BANKING.RECORD_XML
+          group: oracle-cdc-group
+          consumer:
+            use-native-decoding: true
+
       kafka:
         binder:
           brokers: localhost:29092,localhost:29094,localhost:29096
@@ -87,3 +95,5 @@ management:
 logging:
   level:
     dev.oudom.pipeline: DEBUG
+    org.springframework.cloud.stream: DEBUG
+    org.apache.kafka: INFO
