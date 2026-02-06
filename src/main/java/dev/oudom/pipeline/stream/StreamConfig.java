@@ -1,9 +1,11 @@
 package dev.oudom.pipeline.stream;
 
+import ITP.CORE_BANKING.RECORD_XML.Envelope;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.Message;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -20,6 +22,13 @@ public class StreamConfig {
     // Supplier for producing message into kafka topic
     // Function for processing message and send to destination kafka topic
     // Consumer for consuming message from kafka topic
+
+    @Bean
+    public Consumer<Message<Envelope>> captureEnvelope() {
+        return record -> {
+            System.out.println("Dbz envelope: " + record.getPayload().getAfter());
+        };
+    }
 
     @Bean
     public Function<Product, Product> processProductDetail() {

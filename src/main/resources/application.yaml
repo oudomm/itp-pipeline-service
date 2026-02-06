@@ -13,9 +13,15 @@ spring:
     import: optional:configserver:http://localhost:8888
   cloud:
     function:
-      definition: processProduct;processMessage;processProductDetail;processDbChanges;processOracleDbChanges # must be the same - processProduct
+      definition: processProduct;processMessage;processProductDetail;processDbChanges;processOracle;captureEnvelope # must be the same - processProduct
     stream:
       bindings:
+        captureEnvelope-in-0:
+          destination: ITP.CORE_BANKING.RECORD_XML
+          content-type: application/*+avro
+        processOracle-in-0:
+          destination: ITP.CORE_BANKING.RECORD_XML
+          content-type: application/*+avro
         processProductDetail-in-0:
           destination: product-detail
           group: monitor-group2
@@ -40,11 +46,11 @@ spring:
           content-type: application/json
 
         # Oracle CDC Bindings
-        processOracleDbChanges-in-0:
-          destination: oracleserver.CORE_BANKING.RECORD_XML
-          group: oracle-cdc-group
-          consumer:
-            use-native-decoding: true
+#        processOracleDbChanges-in-0:
+#          destination: oracleserver.CORE_BANKING.RECORD_XML
+#          group: oracle-cdc-group
+#          consumer:
+#            use-native-decoding: true
 
       kafka:
         binder:
@@ -57,6 +63,29 @@ spring:
             schema.registry.url: http://localhost:8081
             specific.avro.reader: false
             auto.offset.reset: latest
+        bindings:
+          captureEnvelope-in-0:
+            consumer:
+              configuration:
+                key.deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+                value.deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+                specific.avro.reader: true
+
+
+  # Spring Kafka (for Oracle CDC with @KafkaListener and Avro)
+  kafka:
+    bootstrap-servers: localhost:29092,localhost:29094,localhost:29096
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: latest
+      # Use Avro deserializers for Oracle CDC
+      key-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        schema.registry.url: http://localhost:8081
+        specific.avro.reader: false
+        spring.json.trusted.packages: "*"
+
   security:
     oauth2:
       resourceserver:
